@@ -101,8 +101,24 @@ router.post('/', (req: Request<Record<string, unknown>, Record<string, unknown>,
       }
 
       if (req.body.layout) {
-        const filePath: string = path.resolve(req.body.layout).toLowerCase()
-        const isForbiddenFile: boolean = (filePath.includes('ftp') || filePath.includes('ctf.key') || filePath.includes('encryptionkeys'))
+        const rootDir: string = path.resolve('.').toLowerCase()
+        let decodedLayout: string = typeof req.body.layout === 'string' ? req.body.layout : ''
+        try {
+          decodedLayout = decodeURIComponent(decodedLayout)
+        } catch {
+          // ignore malformed URI components
+        }
+        const normalizedLayout: string = decodedLayout.replace(/\\/g, '/')
+        const filePath: string = path.resolve('views', normalizedLayout).toLowerCase()
+        const directPath: string = path.resolve(normalizedLayout).toLowerCase()
+        const isPathTraversal: boolean = typeof req.body.layout !== 'string' ||
+          req.body.layout.includes('\0') ||
+          decodedLayout.includes('\0') ||
+          path.isAbsolute(normalizedLayout) ||
+          !filePath.startsWith(rootDir + path.sep)
+        const isForbiddenFile: boolean = isPathTraversal ||
+          (filePath.includes('ftp') || filePath.includes('ctf.key') || filePath.includes('encryptionkeys') ||
+           directPath.includes('ftp') || directPath.includes('ctf.key') || directPath.includes('encryptionkeys'))
         if (!isForbiddenFile) {
           res.render('dataErasureResult', {
             ...req.body,
